@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Mon Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#121214; --surface:#1B1B1F; --surface2:#232328; --border:#2E2E34;
+    --text:#EDEBE6; --text2:#A6A3A0; --text3:#6E6C6A;
+    --accent:#E0A63A; --accent-dim:#4A3B1D;
+    --ok:#4C9A6A; --danger:#C0564C;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:env(safe-area-inset-bottom);}
+  h1,h2,h3{font-weight:600; letter-spacing:-0.01em; margin:0;}
+  .app{max-width:520px; margin:0 auto; min-height:100vh; padding:0 16px 100px;}
+  header{position:sticky; top:0; z-index:20; background:rgba(18,18,20,0.92);
+    backdrop-filter:blur(10px); padding:18px 0 12px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{font-size:20px;}
+  .icon-btn{width:38px; height:38px; border-radius:50%; background:var(--surface2);
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+    color:var(--text2); font-size:16px; cursor:pointer;}
+  .tabs{display:flex; gap:6px; margin:8px 0 18px; background:var(--surface); padding:4px; border-radius:12px;}
+  .tab{flex:1; text-align:center; padding:9px 0; border-radius:9px; font-size:13px; color:var(--text2); cursor:pointer;}
+  .tab.active{background:var(--surface2); color:var(--text); font-weight:600;}
+  .stats-row{display:flex; gap:10px; margin-bottom:18px;}
+  .stat{flex:1; background:var(--surface); border-radius:var(--radius); padding:12px 14px; border:1px solid var(--border);}
+  .stat .n{font-size:22px; font-weight:700;}
+  .stat .l{font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.04em; margin-top:2px;}
+  input[type=text], input[type=password], input[type=number]{
+    width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    padding:11px 13px; border-radius:10px; font-size:15px; outline:none;}
+  input::placeholder{color:var(--text3);}
+  button{font-family:inherit; cursor:pointer;}
+  .btn{background:var(--surface2); color:var(--text); border:1px solid var(--border);
+    padding:11px 16px; border-radius:10px; font-size:14px; font-weight:600;}
+  .btn.primary{background:var(--accent); color:#1a1206; border:none;}
+  .btn.block{width:100%;}
+  .btn.ghost{background:transparent; border:1px solid var(--border); color:var(--text2);}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+  .show{display:flex; gap:12px; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); padding:10px; margin-bottom:10px; align-items:center; cursor:pointer;}
+  .poster{width:52px; height:78px; border-radius:8px; background:var(--surface2); flex-shrink:0;
+    background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center;
+    color:var(--text3); font-size:10px; overflow:hidden;}
+  .show-info{flex:1; min-width:0;}
+  .show-name{font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .show-sub{font-size:12px; color:var(--text3); margin-top:3px;}
+  .badges{display:flex; gap:5px; margin-top:6px; flex-wrap:wrap;}
+  .badge{font-size:10px; padding:3px 8px; border-radius:20px; background:var(--surface2); color:var(--text2); border:1px solid var(--border);}
+  .badge.fav{background:var(--accent-dim); color:var(--accent);}
+  .badge.rating{background:var(--accent-dim); color:var(--accent);}
+  .progress-bar{height:4px; border-radius:2px; background:var(--surface2); margin-top:7px; overflow:hidden;}
+  .progress-fill{height:100%; background:var(--accent);}
+  .empty{text-align:center; padding:60px 20px; color:var(--text3);}
+  .empty h3{color:var(--text2); margin-bottom:8px; font-size:16px;}
+  .empty p{font-size:13px; line-height:1.5;}
+  .drop{border:2px dashed var(--border); border-radius:var(--radius); padding:28px 16px;
+    text-align:center; color:var(--text2); font-size:13px; margin-bottom:14px;}
+  .drop.drag{border-color:var(--accent); color:var(--accent);}
+  .row{display:flex; gap:10px; align-items:center;}
+  .row.between{justify-content:space-between;}
+  label.small{font-size:12px; color:var(--text2); display:block; margin-bottom:6px;}
+  .section-title{font-size:12px; color:var(--text3); text-transform:uppercase; letter-spacing:0.05em;
+    margin:22px 0 10px;}
+  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; display:flex;
+    align-items:flex-end; justify-content:center;}
+  .modal{background:var(--surface); width:100%; max-width:520px; border-radius:20px 20px 0 0;
+    padding:20px; max-height:85vh; overflow-y:auto; padding-bottom:calc(20px + env(safe-area-inset-bottom));}
+  .modal-handle{width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 16px;}
+  .season-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border);}
+  .ep-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(38px,1fr)); gap:6px; margin:10px 0;}
+  .ep-cell{aspect-ratio:1; border-radius:8px; background:var(--surface2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text3);}
+  .ep-cell.seen{background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:700;}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--surface2);
+    border:1px solid var(--border); padding:12px 20px; border-radius:30px; font-size:13px; z-index:200;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+  .close-x{position:absolute; top:16px; right:16px; color:var(--text3); font-size:20px; background:none; border:none;}
+  .stars{display:flex; gap:4px; margin:10px 0;}
+  .star{font-size:26px; color:var(--border); cursor:pointer;}
+  .star.on{color:var(--accent);}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+const STORAGE_KEY = 'shows';
+const SETTINGS_KEY = 'settings';
+const DEFAULT_TMDB_KEY = '__TMDB_KEY__';
+let state = { shows: [], settings: { tmdbKey: DEFAULT_TMDB_KEY }, tab: 'watching', selectedShow: null, importBusy: false };
+
+async function loadState(){
+  try{
+    const r = await window.storage.get(STORAGE_KEY);
+    if(r && r.value) state.shows = JSON.parse(r.value);
+  }catch(e){}
+  try{
+    const r2 = await window.storage.get(SETTINGS_KEY);
+    if(r2 && r2.value){
+      state.settings = JSON.parse(r2.value);
+      if(!state.settings.tmdbKey) state.settings.tmdbKey = DEFAULT_TMDB_KEY;
+    }
+  }catch(e){}
+}
+async function saveShows(){
+  await window.storage.set(STORAGE_KEY, JSON.stringify(state.shows));
+}
+async function saveSettings(){
+  await window.storage.set(SETTINGS_KEY, JSON.stringify(state.settings));
+}
+
+function toast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2600);
+}
+
+function uuid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
+
+// ---------- IMPORT TV TIME ----------
+async function handleZipFile(file){
+  state.importBusy = true; render();
+  try{
+    const zip = await JSZip.loadAsync(file);
+    const readCsv = async (name) => {
+      const f = zip.file(name);
+      if(!f) return [];
+      const text = await f.async('string');
+      const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
+      return parsed.data;
+    };
+
+    const [tracking, followed, rates, userData] = await Promise.all([
+      readCsv('tracking-prod-records-v2.csv'),
+      readCsv('followed_tv_show.csv'),
+      readCsv('tv_show_rate.csv'),
+      readCsv('user_tv_show_data.csv')
+    ]);
+
+    const byName = {}; // name -> show object (building)
+    const getShow = (name, tvtimeId) => {
+      const key = name.trim();
+      if(!byName[key]){
+        byName[key] = {
+          id: uuid(),
+          name: key,
+          tvtimeId: tvtimeId || null,
+          tmdbId: null,
+          poster: null,
+          favorite: false,
+          following: false,
+          rating: null,
+          episodes: {}, // season -> {ep: watchedDateISO}
+          addedAt: new Date().toISOString(),
+        };
+      }
+      return byName[key];
+    };
+
+    // Episode watch events (watch-episode-* and rewatch-episode-*)
+    for(const row of tracking){
+      const k = row.key || '';
+      if(!(k.startsWith('watch-episode') || k.startsWith('rewatch-episode'))) continue;
+      if(!row.series_name || !row.season_number || !row.episode_number) continue;
+      const show = getShow(row.series_name, row.s_id);
+      const s = row.season_number, e = row.episode_number;
+      if(!show.episodes[s]) show.episodes[s] = {};
+      const date = row.created_at || null;
+      if(!show.episodes[s][e] || (date && date < show.episodes[s][e])){
+        show.episodes[s][e] = date;
+      }
+    }
+
+    // Followed shows
+    for(const row of followed){
+      if(!row.tv_show_name) continue;
+      const show = getShow(row.tv_show_name, row.tv_show_id);
+      show.following = row.active === '1';
+    }
+
+    // Ratings
+    for(const row of rates){
+      if(!row.tv_show_name) continue;
+      const show = getShow(row.tv_show_name, row.tv_show_id);
+      show.rating = parseFloat(row.rating);
+    }
+
+    // Favorites / episode counts fallback
+    for(const row of userData){
+      if(!row.tv_show_name) continue;
+      const show = getShow(row.tv_show_name, row.tv_show_id);
+      show.favorite = row.is_favorited === '1';
+      if(row.is_followed === '1') show.following = true;
+    }
+
+    const imported = Object.values(byName);
+    // Merge with existing shows by name (avoid duplicates)
+    let addedCount = 0, mergedCount = 0;
+    for(const s of imported){
+      const existing = state.shows.find(x => x.name.toLowerCase() === s.name.toLowerCase());
+      if(existing){
+        // merge episodes
+        for(const season in s.episodes){
+          existing.episodes[season] = {...(existing.episodes[season]||{}), ...s.episodes[season]};
+        }
+        existing.following = existing.following || s.following;
+        existing.favorite = existing.favorite || s.favorite;
+        if(s.rating) existing.rating = s.rating;
+        mergedCount++;
+      } else {
+        state.shows.push(s);
+        addedCount++;
+      }
+    }
+    await saveShows();
+    toast(`Import terminé : ${addedCount} ajoutées, ${mergedCount} mises à jour`);
+  }catch(err){
+    console.error(err);
+    toast("Erreur d'import : " + err.message);
+  }
+  state.importBusy = false;
+  render();
+}
+
+// ---------- TMDb ----------
+async function tmdbSearch(name){
+  const key = state.settings.tmdbKey;
+  if(!key) return null;
+  try{
+    const url = `https://api.themoviedb.org/3/search/tv?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(name)}&language=fr-FR`;
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const data = await res.json();
+    if(data.results && data.results.length) return data.results[0];
+    return null;
+  }catch(e){ return null; }
+}
+
+async function enrichShow(show){
+  if(!state.settings.tmdbKey){ toast('Ajoute ta clé TMDb dans les réglages'); return; }
+  const result = await tmdbSearch(show.name);
+  if(result){
+    show.tmdbId = result.id;
+    show.poster = result.poster_path ? `https://image.tmdb.org/t/p/w200${result.poster_path}` : null;
+    show.tmdbOverview = result.overview || '';
+    show.tmdbName = result.name;
+    await saveShows();
+    render();
+    toast('Fiche mise à jour');
+  } else {
+    toast('Aucun résultat TMDb pour "' + show.name + '"');
+  }
+}
+
+async function enrichAll(){
+  if(!state.settings.tmdbKey){ toast('Ajoute ta clé TMDb dans les réglages'); return; }
+  toast('Mise à jour du catalogue en cours...');
+  for(const show of state.shows){
+    if(!show.tmdbId){
+      await enrichShow(show);
+      await new Promise(r=>setTimeout(r, 250));
+    }
+  }
+  toast('Catalogue à jour');
+}
+
+// ---------- Derived data ----------
+function episodeCount(show){
+  let n = 0;
+  for(const s in show.episodes) n += Object.keys(show.episodes[s]).length;
+  return n;
+}
+function lastWatchedDate(show){
+  let max = null;
+  for(const s in show.episodes){
+    for(const e in show.episodes[s]){
+      const d = show.episodes[s][e];
+      if(d && (!max || d > max)) max = d;
+    }
+  }
+  return max;
+}
+
+// ---------- Rendering ----------
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  const header = document.createElement('header');
+  header.innerHTML = `<h1>Mon tracker</h1>`;
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'icon-btn';
+  settingsBtn.innerHTML = '&#9881;';
+  settingsBtn.onclick = () => openSettingsModal();
+  header.appendChild(settingsBtn);
+  app.appendChild(header);
+
+  if(state.shows.length === 0){
+    app.appendChild(renderImportZone());
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.innerHTML = `<h3>Aucune série pour l'instant</h3><p>Importe ton export TV Time (fichier .zip)<br>ou ajoute une série manuellement.</p>`;
+    app.appendChild(empty);
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn block';
+    addBtn.textContent = '+ Ajouter une série manuellement';
+    addBtn.onclick = () => openAddShowModal();
+    app.appendChild(addBtn);
+    return;
+  }
+
+  // stats
+  const totalEp = state.shows.reduce((a,s)=>a+episodeCount(s),0);
+  const statsRow = document.createElement('div');
+  statsRow.className = 'stats-row';
+  statsRow.innerHTML = `
+    <div class="stat"><div class="n">${state.shows.length}</div><div class="l">Séries</div></div>
+    <div class="stat"><div class="n">${totalEp}</div><div class="l">Épisodes vus</div></div>
+    <div class="stat"><div class="n">${state.shows.filter(s=>s.following).length}</div><div class="l">Suivies</div></div>
+  `;
+  app.appendChild(statsRow);
+
+  // tabs
+  const tabs = document.createElement('div');
+  tabs.className = 'tabs';
+  const tabDefs = [['following','Suivies'],['favorite','Favoris'],['all','Tout']];
+  tabDefs.forEach(([key,label])=>{
+    const t = document.createElement('div');
+    t.className = 'tab' + (state.tab===key?' active':'');
+    t.textContent = label;
+    t.onclick = () => { state.tab = key; render(); };
+    tabs.appendChild(t);
+  });
+  app.appendChild(tabs);
+
+  let list = state.shows;
+  if(state.tab === 'following') list = list.filter(s=>s.following);
+  if(state.tab === 'favorite') list = list.filter(s=>s.favorite);
+  list = [...list].sort((a,b)=>{
+    const da = lastWatchedDate(a) || ''; const db = lastWatchedDate(b) || '';
+    return db.localeCompare(da);
+  });
+
+  if(list.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.innerHTML = `<p>Rien à afficher dans cet onglet.</p>`;
+    app.appendChild(empty);
+  }
+
+  list.forEach(show => app.appendChild(renderShowRow(show)));
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn block';
+  addBtn.style.marginTop = '10px';
+  addBtn.textContent = '+ Ajouter une série manuellement';
+  addBtn.onclick = () => openAddShowModal();
+  app.appendChild(addBtn);
+}
+
+function renderImportZone(){
+  const wrap = document.createElement('div');
+  wrap.className = 'drop';
+  wrap.id = 'dropzone';
+  wrap.innerHTML = state.importBusy
+    ? `Import en cours...`
+    : `<div style="margin-bottom:10px;">Glisse ton fichier <b>gdpr-data.zip</b> ici</div>
+       <label class="btn primary" style="display:inline-block;">Choisir le fichier
+         <input type="file" accept=".zip" style="display:none" id="fileInput">
+       </label>`;
+  setTimeout(()=>{
+    const dz = document.getElementById('dropzone');
+    const input = document.getElementById('fileInput');
+    if(input) input.onchange = (e) => { if(e.target.files[0]) handleZipFile(e.target.files[0]); };
+    if(dz){
+      dz.ondragover = (e) => { e.preventDefault(); dz.classList.add('drag'); };
+      dz.ondragleave = () => dz.classList.remove('drag');
+      dz.ondrop = (e) => {
+        e.preventDefault(); dz.classList.remove('drag');
+        if(e.dataTransfer.files[0]) handleZipFile(e.dataTransfer.files[0]);
+      };
+    }
+  },0);
+  return wrap;
+}
+
+function renderShowRow(show){
+  const row = document.createElement('div');
+  row.className = 'show';
+  row.onclick = () => openShowModal(show);
+  const count = episodeCount(show);
+  const poster = document.createElement('div');
+  poster.className = 'poster';
+  if(show.poster){
+    poster.style.backgroundImage = `url(${show.poster})`;
+  } else {
+    poster.textContent = 'pas de poster';
+  }
+  const info = document.createElement('div');
+  info.className = 'show-info';
+  let badges = '';
+  if(show.favorite) badges += `<span class="badge fav">favori</span>`;
+  if(show.rating) badges += `<span class="badge rating">${show.rating}/5</span>`;
+  if(show.following) badges += `<span class="badge">suivie</span>`;
+  info.innerHTML = `
+    <div class="show-name">${escapeHtml(show.name)}</div>
+    <div class="show-sub">${count} épisode${count>1?'s':''} vu${count>1?'s':''}</div>
+    <div class="badges">${badges}</div>
+  `;
+  row.appendChild(poster);
+  row.appendChild(info);
+  return row;
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+// ---------- Modals ----------
+function openModal(contentEl){
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.onclick = (e) => { if(e.target === bg) bg.remove(); };
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'close-x';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.onclick = () => bg.remove();
+  const handle = document.createElement('div');
+  handle.className = 'modal-handle';
+  modal.appendChild(closeBtn);
+  modal.appendChild(handle);
+  modal.appendChild(contentEl);
+  bg.appendChild(modal);
+  document.body.appendChild(bg);
+  return bg;
+}
+
+function openSettingsModal(){
+  const c = document.createElement('div');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px;">Réglages</h2>
+    <label class="small">Clé API TMDb (v4, "Read Access Token")</label>
+    <input type="password" id="tmdbKeyInput" placeholder="eyJhbGciOi..." value="${state.settings.tmdbKey||''}">
+    <p style="font-size:12px; color:var(--text3); margin:10px 0 18px; line-height:1.5;">
+      Gratuit sur <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a>.
+      Crée un compte, demande une clé API (usage personnel), copie le "Jeton d'accès en lecture API (v4 auth)".
+    </p>
+    <button class="btn primary block" id="saveKeyBtn">Enregistrer</button>
+    <div style="height:22px;"></div>
+    <div class="section-title">Import de données</div>
+  `;
+  c.appendChild(renderImportZone());
+  const enrichBtn = document.createElement('button');
+  enrichBtn.className = 'btn block';
+  enrichBtn.style.marginTop = '8px';
+  enrichBtn.textContent = 'Mettre à jour le catalogue (posters, infos) via TMDb';
+  enrichBtn.onclick = () => enrichAll();
+  c.appendChild(enrichBtn);
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'btn ghost block';
+  exportBtn.style.marginTop = '8px';
+  exportBtn.textContent = 'Exporter mes données (JSON)';
+  exportBtn.onclick = () => {
+    const blob = new Blob([JSON.stringify(state.shows, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mon-tracker-export.json';
+    a.click();
+  };
+  c.appendChild(exportBtn);
+
+  const modal = openModal(c);
+  setTimeout(()=>{
+    document.getElementById('saveKeyBtn').onclick = async () => {
+      state.settings.tmdbKey = document.getElementById('tmdbKeyInput').value.trim();
+      await saveSettings();
+      toast('Clé enregistrée');
+      modal.remove();
+    };
+  },0);
+}
+
+function openAddShowModal(){
+  const c = document.createElement('div');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px;">Ajouter une série</h2>
+    <label class="small">Nom</label>
+    <input type="text" id="newShowName" placeholder="Ex : Severance">
+    <button class="btn primary block" style="margin-top:14px;" id="addShowBtn">Ajouter</button>
+  `;
+  const modal = openModal(c);
+  setTimeout(()=>{
+    document.getElementById('addShowBtn').onclick = async () => {
+      const name = document.getElementById('newShowName').value.trim();
+      if(!name) return;
+      state.shows.push({
+        id: uuid(), name, tvtimeId:null, tmdbId:null, poster:null,
+        favorite:false, following:true, rating:null, episodes:{}, addedAt:new Date().toISOString()
+      });
+      await saveShows();
+      modal.remove();
+      render();
+    };
+  },0);
+}
+
+function openShowModal(show){
+  const c = document.createElement('div');
+  const count = episodeCount(show);
+  c.innerHTML = `
+    <div class="row" style="align-items:flex-start; margin-bottom:6px;">
+      <div class="poster" style="width:70px;height:104px;${show.poster?`background-image:url(${show.poster});background-size:cover;`:''}">
+        ${show.poster?'':'pas de poster'}
+      </div>
+      <div style="flex:1;">
+        <h2>${escapeHtml(show.name)}</h2>
+        <div class="show-sub">${count} épisode${count>1?'s':''} vu${count>1?'s':''}</div>
+      </div>
+    </div>
+    ${show.tmdbOverview ? `<p style="font-size:13px; color:var(--text2); line-height:1.5; margin:14px 0;">${escapeHtml(show.tmdbOverview)}</p>` : ''}
+    <div class="row" style="margin:16px 0; gap:8px;">
+      <button class="btn" id="favBtn">${show.favorite?'★ Favori':'☆ Favori'}</button>
+      <button class="btn" id="followBtn">${show.following?'Suivie ✓':'Suivre'}</button>
+      <button class="btn" id="tmdbBtn">Actualiser fiche</button>
+    </div>
+    <div class="section-title">Note</div>
+    <div class="stars" id="starsRow"></div>
+    <div class="section-title">Épisodes vus</div>
+    <div id="seasonsList"></div>
+    <button class="btn ghost block" id="deleteBtn" style="margin-top:20px; color:var(--danger);">Supprimer cette série</button>
+  `;
+  const modal = openModal(c);
+
+  setTimeout(()=>{
+    // stars
+    const starsRow = document.getElementById('starsRow');
+    for(let i=1;i<=5;i++){
+      const s = document.createElement('span');
+      s.className = 'star' + (show.rating && i<=Math.round(show.rating) ? ' on':'');
+      s.textContent = '★';
+      s.onclick = async () => { show.rating = i; await saveShows(); modal.remove(); openShowModal(show); };
+      starsRow.appendChild(s);
+    }
+
+    document.getElementById('favBtn').onclick = async () => { show.favorite = !show.favorite; await saveShows(); modal.remove(); openShowModal(show); };
+    document.getElementById('followBtn').onclick = async () => { show.following = !show.following; await saveShows(); modal.remove(); openShowModal(show); };
+    document.getElementById('tmdbBtn').onclick = () => enrichShow(show);
+    document.getElementById('deleteBtn').onclick = async () => {
+      state.shows = state.shows.filter(s=>s.id!==show.id);
+      await saveShows();
+      modal.remove();
+      render();
+    };
+
+    const seasonsList = document.getElementById('seasonsList');
+    const seasons = Object.keys(show.episodes).sort((a,b)=>Number(a)-Number(b));
+    if(seasons.length===0){
+      seasonsList.innerHTML = `<p style="font-size:13px; color:var(--text3);">Aucun épisode enregistré.</p>`;
+    }
+    seasons.forEach(season => {
+      const eps = show.episodes[season];
+      const wrap = document.createElement('div');
+      wrap.innerHTML = `<div class="season-row"><span>Saison ${season}</span><span style="color:var(--text3); font-size:12px;">${Object.keys(eps).length} épisode(s)</span></div>`;
+      const grid = document.createElement('div');
+      grid.className = 'ep-grid';
+      const epNums = Object.keys(eps).map(Number).sort((a,b)=>a-b);
+      const maxEp = Math.max(...epNums);
+      for(let i=1;i<=maxEp;i++){
+        const cell = document.createElement('div');
+        const seen = eps[String(i)] !== undefined;
+        cell.className = 'ep-cell' + (seen?' seen':'');
+        cell.textContent = i;
+        cell.title = seen ? ('Vu le ' + (eps[String(i)]||'')) : 'Non vu';
+        cell.onclick = async () => {
+          if(seen){ delete eps[String(i)]; } else { eps[String(i)] = new Date().toISOString(); }
+          await saveShows();
+          modal.remove();
+          openShowModal(show);
+        };
+        grid.appendChild(cell);
+      }
+      wrap.appendChild(grid);
+      seasonsList.appendChild(wrap);
+    });
+  },0);
+}
+
+// ---------- Init ----------
+(async function init(){
+  await loadState();
+  render();
+})();
+</script>
+</body>
+</html>
